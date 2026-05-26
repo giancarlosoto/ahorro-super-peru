@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AhorroSuper 🇵🇪 | Comparador de Precios de Supermercados de Perú</title>
+  <meta name="description" content="Compara precios en tiempo real entre Plaza Vea, Metro, Tottus y Wong. Optimiza tu canasta familiar y ahorra al máximo con estrategias inteligentes.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Encabezado -->
+    <header>
+      <div class="logo-section">
+        <h1>AhorroSuper<span>🇵🇪</span></h1>
+        <p>Comparador Inteligente de Precios de Supermercados</p>
+      </div>
+      <div class="header-actions">
+        <a href="audit.html" class="nav-link" style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 10px 20px; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; transition: var(--transition);">🕵️ Panel de Auditoría</a>
+        <button id="theme-toggle" class="theme-toggle-btn" title="Cambiar tema">☀️</button>
+      </div>
+    </header>
+
+    <!-- Layout Principal -->
+    <main class="main-layout">
+      
+      <!-- Barra Lateral / Panel de Entrada -->
+      <section class="card sidebar-card">
+        <h2 class="card-title">🛒 Mi Lista de Compras</h2>
+        
+        <div class="input-group">
+          <label for="bulk-input" class="input-label">Ingresa tus Productos</label>
+          <p class="input-desc">Escribe o pega una lista de productos separados por comas o saltos de línea.</p>
+          <textarea id="bulk-input" class="form-control" placeholder="Ejemplo:&#10;Arroz costeño 5kg&#10;Leche gloria azul&#10;Aceite Primor&#10;Pechuga de pollo"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+          <button id="btn-compare" class="btn btn-primary">
+            🔍 Comparar Precios
+          </button>
+          <button id="btn-clear" class="btn btn-secondary" title="Limpiar todo">
+            🗑️
+          </button>
+        </div>
+
+        <button id="btn-demo-list" class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 16px;">
+          💡 Cargar Lista Demostrativa
+        </button>
+
+        <!-- Sugerencias Rápidas -->
+        <div class="suggestions-box">
+          <h4 class="suggestions-title">Agregar Canasta Básica Rápida</h4>
+          <div class="suggestions-list">
+            <button class="tag-btn">Arroz costeño 5kg</button>
+            <button class="tag-btn">Leche gloria azul</button>
+            <button class="tag-btn">Aceite Primor 1L</button>
+            <button class="tag-btn">Pollo entero</button>
+            <button class="tag-btn">Papa amarilla</button>
+            <button class="tag-btn">Huevos de 30</button>
+            <button class="tag-btn">Coca-Cola 3L</button>
+            <button class="tag-btn">Papel higienico Elite</button>
+            <button class="tag-btn">Fideos Don Vittorio</button>
+            <button class="tag-btn">Yogurt Gloria Fresa</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel de Resultados (Matriz + Ahorros) -->
+      <section style="display: flex; flex-direction: column; gap: 28px;">
+        
+        <!-- Estado Inicial Vacío -->
+        <div id="empty-state" class="card empty-state">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <h3>Tu comparador está listo</h3>
+          <p>Escribe tu lista de compras en el panel de la izquierda y haz clic en "Comparar Precios" para ver la matriz comparativa de Plaza Vea, Metro, Tottus y Wong.</p>
+        </div>
+
+        <!-- Pantalla de Carga Interactiva y Simulación de Scraping -->
+        <div id="loader-card" class="card loader-card" style="display: none;">
+          <div class="spinner"></div>
+          <h3 id="loader-text">Inicializando motores de búsqueda...</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Ejecutando consultas de scraping simuladas en tiempo real para evitar bloqueos...</p>
+          <div id="loader-logs" class="loader-logs"></div>
+        </div>
+
+        <!-- Matriz Comparativa y Optimizaciones (Ocultos al inicio) -->
+        <div id="results-section" class="results-container" style="display: none;">
+          
+          <!-- Tabla de la Matriz -->
+          <div class="card">
+            <div class="table-header-actions">
+              <h3 class="matrix-title">
+                📊 Matriz Comparativa de Precios
+                <span class="matrix-badge">Perú 2026</span>
+              </h3>
+              
+              <!-- Toggle de precios Regulares vs Tarjetas -->
+              <div class="price-toggle-container">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-right: 8px;">VER PRECIOS:</span>
+                <div class="scraping-tabs" style="display: inline-flex;">
+                  <button id="price-type-regular" class="scraping-tab-btn active" style="padding: 6px 12px; font-size: 0.78rem;">Estándar</button>
+                  <button id="price-type-card" class="scraping-tab-btn" style="padding: 6px 12px; font-size: 0.78rem;">Con Tarjeta 💳</button>
+                </div>
+              </div>
+
+              <button id="btn-export" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 0.85rem;">
+                📥 Exportar a Excel (CSV)
+              </button>
+            </div>
+            
+            <div class="table-wrapper">
+              <table class="matrix-table">
+                <thead>
+                  <tr>
+                    <th>Producto Solicitado</th>
+                    <th class="store-th plazavea-th">Plaza Vea</th>
+                    <th class="store-th metro-th">Metro</th>
+                    <th class="store-th tottus-th">Tottus</th>
+                    <th class="store-th wong-th">Wong</th>
+                  </tr>
+                </thead>
+                <tbody id="matrix-body">
+                  <!-- Se rellena dinámicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Optimizador de Ahorros -->
+          <div class="card">
+            <h3 class="card-title">💡 Optimizador de Presupuesto Familiar</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">Comparamos los dos mejores métodos para realizar tus compras y maximizar tu ahorro mensual.</p>
+            
+            <div class="optimizer-section">
+              
+              <!-- Compra Única -->
+              <div class="opt-card">
+                <h4 class="opt-card-title">🛒 Opción A: Compra en un solo lugar</h4>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 12px; line-height:1.4;">Ideal si prefieres hacer tu compra completa en un solo local por comodidad, tiempo o delivery único.</p>
+                <div id="opt-single-container" style="display: flex; flex-direction: column; flex-grow: 1;">
+                  <!-- Se rellena dinámicamente -->
+                </div>
+              </div>
+
+              <!-- Compra Dividida Inteligente -->
+              <div class="opt-card" style="border-color: var(--success-border);">
+                <h4 class="opt-card-title" style="color: var(--success);">⚡ Opción B: Estrategia Dividida</h4>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 12px; line-height:1.4;">La opción óptima. Compra cada producto individual en la tienda que lo tiene al precio más bajo.</p>
+                <div id="opt-split-container" style="display: flex; flex-direction: column; flex-grow: 1;">
+                  <!-- Se rellena dinámicamente -->
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Banner de Ahorro Final -->
+            <div id="savings-banner" class="savings-banner">
+              <!-- Se rellena dinámicamente -->
+            </div>
+          </div>
+
+        </div>
+
+
+
+        <!-- Sección de Compartición Pública / Guía técnica -->
+        <section class="card" style="border-left: 4px solid var(--accent-color);">
+          <h3 class="card-title">🌐 ¿Cómo publicar y compartir esta web gratis?</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">
+            Como esta aplicación es **100% estática (HTML, CSS y JS)**, puedes subirla y compartirla de forma totalmente gratuita y segura con cualquier persona en otra ciudad.
+          </p>
+          <div class="doc-content">
+            <ul>
+              <li>
+                <strong>Opción A: GitHub Pages (Recomendada y Directa):</strong>
+                Como ya cuentas con un repositorio git inicializado, solo sube este código a un repositorio público en tu cuenta de GitHub, ve a <em>Settings -> Pages</em>, y actívalo. Recibirás un enlace público del tipo <code>https://tuusuario.github.io/tuproyecto</code> en 1 minuto.
+              </li>
+              <li>
+                <strong>Opción B: Vercel (Arrastrar y Soltar):</strong>
+                Crea una cuenta gratuita en <a href="https://vercel.com" target="_blank">vercel.com</a> y sube la carpeta de tu proyecto. Te asignará una URL pública y segura (SSL) al instante.
+              </li>
+              <li>
+                <strong>Opción C: Netlify Drop:</strong>
+                Entra a <a href="https://app.netlify.com/drop" target="_blank">netlify.com/drop</a> y arrastra tu carpeta. Estará en línea inmediatamente sin necesidad de registro previo.
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Sección de Arquitectura y Guía Técnica de Scraping -->
+        <section class="card">
+          <div class="scraping-header">
+            <div>
+              <h3 class="card-title" style="margin-bottom: 4px;">🔬 Ingeniería de Datos: Arquitectura de Scraping</h3>
+              <p style="color: var(--text-secondary); font-size: 0.85rem;">Descubre cómo funciona técnicamente la extracción real de Plaza Vea, Metro, Wong y Tottus.</p>
+            </div>
+            <div class="scraping-tabs">
+              <button id="tab-overview" class="scraping-tab-btn active">General</button>
+              <button id="tab-vtex" class="scraping-tab-btn">APIs VTEX (Express)</button>
+              <button id="tab-playwright" class="scraping-tab-btn">Playwright (Stealth)</button>
+            </div>
+          </div>
+          
+          <div id="scraping-content" class="doc-content">
+            <!-- Se rellena dinámicamente -->
+          </div>
+        </section>
+
+      </section>
+
+    </main>
+
+    <!-- Pie de Página -->
+    <footer>
+      <p>AhorroSuper Perú 2026. Diseñado con fines demostrativos y educativos sobre ingeniería de datos, web scraping y optimización semántica.</p>
+      <p style="margin-top: 6px;">Tecnologías: Vanilla HTML5, Vanilla CSS3 (HSL Variables), Modern JavaScript (ES6 Modules).</p>
+    </footer>
+  </div>
+
+  <!-- Botón Volver Arriba -->
+  <button id="scroll-top-btn" class="scroll-top-btn" title="Volver al inicio">▲</button>
+
+  <script src="app.js"></script>
+</body>
+</html>
