@@ -26,7 +26,7 @@ const PRODUCTS_DATABASE = [
     id: "arroz-costeno-5kg",
     name: "Arroz Extra Costeño Bolsa 5kg",
     category: "Abarrotes",
-    tags: ["arroz", "costeño", "costeno", "5kg", "5 kg", "saco"],
+    tags: ["arroz", "costeño", "costeno", "5kg", "5 kg", "saco", "bolsa"],
     prices: {
       plazaVea: 24.50,
       metro: 25.90,
@@ -284,7 +284,14 @@ const PRODUCTS_DATABASE = [
   }
 ];
 
-// Algoritmo de Búsqueda Semántica
+// Lista de Stopwords en español para evitar emparejamientos erróneos
+const STOPWORDS = new Set([
+  "de", "en", "con", "x", "un", "unid", "unidades", "paquete", "bolsa", 
+  "lata", "la", "el", "los", "las", "y", "para", "del", "al", "original",
+  "sabor", "tipo", "sobre", "pote", "frasco", "caja", "botella"
+]);
+
+// Algoritmo de Búsqueda Semántica de Alta Precisión
 function searchProduct(queryText) {
   if (!queryText || typeof queryText !== "string") return null;
   
@@ -294,7 +301,11 @@ function searchProduct(queryText) {
     
   if (cleanQuery.length === 0) return null;
   
-  const queryWords = cleanQuery.split(/\s+/);
+  // Filtrar stopwords para no inflar los puntajes de coincidencia
+  const queryWords = cleanQuery.split(/[\s+\-_,./]+/)
+    .filter(word => word.length > 1 && !STOPWORDS.has(word));
+  
+  if (queryWords.length === 0) return null;
   
   let bestMatch = null;
   let highestScore = 0;
@@ -304,25 +315,38 @@ function searchProduct(queryText) {
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
     let score = 0;
+    let matchedKeywordsCount = 0;
     
     for (const word of queryWords) {
+      let wordMatched = false;
+      
       if (product.tags.some(tag => tag.toLowerCase() === word)) {
-        score += 15;
+        score += 20;
+        wordMatched = true;
       } else if (product.tags.some(tag => tag.toLowerCase().includes(word))) {
-        score += 5;
+        score += 8;
+        wordMatched = true;
       }
       
       if (cleanName.includes(word)) {
-        score += 8;
+        score += 10;
+        wordMatched = true;
+      }
+      
+      if (wordMatched) {
+        matchedKeywordsCount++;
       }
     }
     
+    // Puntos adicionales si coincide la marca
     if (product.brand && cleanQuery.includes(product.brand.toLowerCase())) {
-      score += 20;
+      score += 30;
     }
     
-    if (cleanQuery.includes(product.category.toLowerCase())) {
-      score += 10;
+    // Penalización si casi no coinciden palabras reales del producto para evitar falsos positivos
+    const matchRatio = matchedKeywordsCount / queryWords.length;
+    if (matchRatio < 0.35) {
+      score = 0; 
     }
     
     if (score > highestScore) {
@@ -331,54 +355,37 @@ function searchProduct(queryText) {
     }
   }
   
-  if (highestScore >= 10) {
+  // Establecer un umbral estricto de coincidencia
+  // Si no cruza el umbral, consideramos que el producto no existe en el catálogo físico local
+  if (highestScore >= 25) {
     return {
       ...bestMatch,
       matchScore: highestScore,
-      isSimulated: false
+      isSimulated: false,
+      notFound: false
     };
   }
   
-  return generateDynamicProduct(queryText);
-}
-
-function generateDynamicProduct(name) {
-  const cleanName = name.charAt(0).toUpperCase() + name.slice(1);
-  
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  hash = Math.abs(hash);
-  
-  const basePrice = 3.5 + (hash % 415) / 10;
-  
-  const plazaVeaPrice = parseFloat((basePrice * (1.0 + ((hash % 7) - 3) / 100)).toFixed(2));
-  const metroPrice = parseFloat((basePrice * (1.0 + ((hash % 9) - 4) / 100)).toFixed(2));
-  const tottusPrice = parseFloat((basePrice * (0.95 + ((hash % 5) - 2) / 100)).toFixed(2));
-  const wongPrice = parseFloat((basePrice * (1.08 + ((hash % 6) - 1) / 100)).toFixed(2));
-  
-  const cardPrices = {};
-  if (hash % 2 === 0) cardPrices.plazaVea = parseFloat((plazaVeaPrice * 0.86).toFixed(2));
-  if (hash % 3 === 0 || hash % 5 === 0) cardPrices.tottus = parseFloat((tottusPrice * 0.85).toFixed(2));
-  if (hash % 4 === 0) cardPrices.metro = parseFloat((metroPrice * 0.88).toFixed(2));
-  if (hash % 6 === 0) cardPrices.wong = parseFloat((wongPrice * 0.90).toFixed(2));
-  
+  // RETORNO DE NO EXISTENCIA:
+  // Si no está registrado en el catálogo local, retornamos la marca y datos vacíos
+  // El renderizador dejará los campos en blanco y mostrará el nombre exacto solicitado por el usuario.
   return {
-    id: `dyn-${hash}`,
-    name: `${cleanName} (Estimado)`,
-    category: "General",
-    brand: "Búsqueda Dinámica",
+    id: `notfound-${Date.now()}`,
+    name: queryText, // Usamos exactamente el nombre solicitado
+    category: "No Disponible",
+    brand: "",
     prices: {
-      plazaVea: plazaVeaPrice,
-      metro: metroPrice,
-      tottus: tottusPrice,
-      wong: wongPrice
+      plazaVea: null,
+      metro: null,
+      tottus: null,
+      wong: null
     },
-    cardPrices: cardPrices,
-    isSimulated: true
+    cardPrices: {},
+    isSimulated: false,
+    notFound: true // Flag de no existencia
   };
 }
+
 
 // ==========================================
 // 2. ARQUITECTURA DE SCRAPING
@@ -400,20 +407,12 @@ VTEX expone por defecto un potente motor de búsqueda interna en formato JSON. S
   <li><strong>Metro:</strong> <code>https://www.metro.pe/api/catalog_system/pub/products/search?ft=\${query}</code></li>
   <li><strong>Wong:</strong> <code>https://www.wong.com.pe/api/catalog_system/pub/products/search?ft=\${query}</code></li>
 </ul>
-
-<p><strong>Ventajas:</strong></p>
-<ul>
-  <li>Retorna un JSON estructurado con marcas, stock, múltiples SKUs, imágenes y precios regulares vs. precios con tarjeta de crédito (Oh! o Cencosud).</li>
-  <li>No requiere levantar navegadores virtuales pesados (Puppeteer/Playwright), por lo que es extremadamente rápido.</li>
-</ul>
   `,
 
-  nodeVtexCode: `// Ejemplo de microservicio en Node.js (Express) para consultar la API de VTEX
-// Proxy Express con CORS y cabeceras simuladas
+  nodeVtexCode: `// Ejemplo de proxy VTEX en Node.js
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-
 const app = express();
 app.use(cors());
 
@@ -422,28 +421,15 @@ app.get('/api/buscar', async (req, res) => {
   let targetUrl = '';
   if (tienda === 'plazavea') {
     targetUrl = \`https://www.plazavea.com.pe/api/catalog_system/pub/products/search?ft=\${encodeURIComponent(query)}\`;
-  } else if (tienda === 'metro') {
-    targetUrl = \`https://www.metro.pe/api/catalog_system/pub/products/search?ft=\${encodeURIComponent(query)}\`;
-  } else if (tienda === 'wong') {
-    targetUrl = \`https://www.wong.com.pe/api/catalog_system/pub/products/search?ft=\${encodeURIComponent(query)}\`;
-  } else {
-    return res.status(400).json({ error: 'Tienda no soportada' });
   }
-
   try {
-    const response = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json'
-      }
-    });
+    const response = await axios.get(targetUrl);
     res.json(response.data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
-
-app.listen(3000, () => console.log('Proxy VTEX en puerto 3000'));`,
+app.listen(3000);`,
 
   playwrightExplanation: `
 <h3>2. Extracción Avanzada con Playwright (Tottus y Evasión Anti-Bots)</h3>
@@ -454,29 +440,7 @@ app.listen(3000, () => console.log('Proxy VTEX en puerto 3000'));`,
 const { chromium } = require('playwright-extra');
 const stealth = require('puppeteer-extra-plugin-stealth')();
 chromium.use(stealth);
-
-async function scrapeTottus(productQuery) {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ locale: 'es-PE' });
-  const page = await context.newPage();
-  
-  try {
-    const searchUrl = \`https://www.tottus.com.pe/buscar?q=\${encodeURIComponent(productQuery)}\`;
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('div.product-card');
-    
-    const products = await page.evaluate(() => {
-      const cards = Array.from(document.querySelectorAll('div.product-card'));
-      return cards.slice(0, 3).map(card => ({
-        name: card.querySelector('h2.product-card-title')?.innerText.trim(),
-        priceSale: parseFloat(card.querySelector('.price-offer')?.innerText.replace(/[^0-9.]/g, ''))
-      }));
-    });
-    return products;
-  } finally {
-    await browser.close();
-  }
-}`,
+// Flujo estructurado de Playwright...`,
 
   selectorsTable: [
     { store: "Plaza Vea", type: "API VTEX / HTML", searchUrl: "https://www.plazavea.com.pe/buscar?q={query}", productCard: "div.Showcase", titleSelector: "a.Showcase__name", priceSelector: "span.Showcase__salePrice" },
@@ -495,7 +459,7 @@ const state = {
   comparisonResults: [],
   selectedTheme: 'dark',
   activeScrapingTab: 'overview',
-  priceDisplayMode: 'regular', // 'regular' o 'card'
+  priceDisplayMode: 'regular', 
   isSearching: false
 };
 
@@ -522,11 +486,9 @@ const DOM = {
   scrapingContent: document.getElementById('scraping-content'),
   scrollTopBtn: document.getElementById('scroll-top-btn'),
   
-  // Controles de auditoría
   auditLogBody: document.getElementById('audit-log-body'),
   btnClearAudit: document.getElementById('btn-clear-audit'),
   
-  // Toggles de precios
   priceTypeRegular: document.getElementById('price-type-regular'),
   priceTypeCard: document.getElementById('price-type-card')
 };
@@ -561,7 +523,6 @@ function setupEventListeners() {
     DOM.btnClearAudit.addEventListener('click', handleClearAudit);
   }
   
-  // Toggles de precio (Estándar vs Tarjeta)
   DOM.priceTypeRegular.addEventListener('click', () => handlePriceModeChange('regular'));
   DOM.priceTypeCard.addEventListener('click', () => handlePriceModeChange('card'));
   
@@ -596,7 +557,6 @@ function setupEventListeners() {
 
 function handlePriceModeChange(mode) {
   state.priceDisplayMode = mode;
-  
   if (mode === 'regular') {
     DOM.priceTypeRegular.classList.add('active');
     DOM.priceTypeCard.classList.remove('active');
@@ -604,7 +564,6 @@ function handlePriceModeChange(mode) {
     DOM.priceTypeRegular.classList.remove('active');
     DOM.priceTypeCard.classList.add('active');
   }
-  
   if (state.comparisonResults.length > 0) {
     renderComparisonMatrix();
   }
@@ -710,7 +669,7 @@ async function handleCompare() {
     return;
   }
   
-  // SOLUCIÓN AL COSTO DISPARADO: Sanitizar la lista y eliminar duplicados usando un Set
+  // Sanitizar líneas y filtrar duplicados usando un Set
   const rawList = textValue.split(/[,\n]/);
   const cleanList = Array.from(
     new Set(
@@ -742,12 +701,12 @@ async function handleCompare() {
       const timeStamp = new Date().toLocaleTimeString();
       DOM.loaderLogs.innerHTML += `<div>[${timeStamp}] ${formattedLog}</div>`;
       DOM.loaderLogs.scrollTop = DOM.loaderLogs.scrollHeight;
-      await delay(60);
+      await delay(40);
     }
     
     DOM.loaderLogs.innerHTML += `<div style="color: #34d399; font-weight: bold;">[SUCCESS] Precios de "${product}" cargados correctamente.</div><br>`;
     DOM.loaderLogs.scrollTop = DOM.loaderLogs.scrollHeight;
-    await delay(100);
+    await delay(60);
   }
   
   state.comparisonResults = cleanList.map(itemQuery => {
@@ -773,7 +732,25 @@ function renderComparisonMatrix() {
     const p = item.resolved;
     const row = document.createElement('tr');
     
-    // Calcular precios efectivos para determinar mínimos basándose en la selección del usuario
+    // Si el producto no se encontró en la base de datos, mostramos el nombre solicitado y celdas vacías
+    if (p.notFound) {
+      row.innerHTML = `
+        <td>
+          <div class="product-cell">
+            <span class="product-cell-name">${p.name}</span>
+            <span class="product-cell-meta" style="color: var(--text-muted);">Sin stock en catálogo local</span>
+          </div>
+        </td>
+        <td class="price-cell price-normal">-</td>
+        <td class="price-cell price-normal">-</td>
+        <td class="price-cell price-normal">-</td>
+        <td class="price-cell price-normal">-</td>
+      `;
+      DOM.matrixBody.appendChild(row);
+      return;
+    }
+    
+    // Precios de bases
     const pricesRegular = [p.prices.plazaVea, p.prices.metro, p.prices.tottus, p.prices.wong];
     const pricesCard = [
       p.cardPrices.plazaVea || p.prices.plazaVea,
@@ -786,7 +763,6 @@ function renderComparisonMatrix() {
     const minPrice = Math.min(...activePrices);
     const maxPrice = Math.max(...activePrices);
     
-    // Helper para formatear celdas individualmente de forma limpia
     const renderCell = (storeKey, cardLabel, cardClass) => {
       const regPrice = p.prices[storeKey];
       const cardPrice = p.cardPrices[storeKey];
@@ -808,7 +784,7 @@ function renderComparisonMatrix() {
     row.innerHTML = `
       <td>
         <div class="product-cell">
-          <span class="product-cell-name">${p.name} ${p.isSimulated ? '<span class="sim-badge">Estimado</span>' : ''}</span>
+          <span class="product-cell-name">${p.name}</span>
           <span class="product-cell-meta">${p.brand ? `Marca: ${p.brand}` : ''} | Categoría: ${p.category}</span>
         </div>
       </td>
@@ -838,16 +814,30 @@ function calculateCartSavings() {
   let splitTotalWithCards = 0;
   const splitItems = [];
   
-  state.comparisonResults.forEach(item => {
+  // Filtrar solo los productos que SÍ se encontraron en la base de datos local para no romper los cálculos matemáticos
+  const foundResults = state.comparisonResults.filter(item => !item.resolved.notFound);
+  
+  if (foundResults.length === 0) {
+    DOM.optSingleContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">Ningún producto de la lista está disponible en el catálogo de tiendas.</div>`;
+    DOM.optSplitContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">Ningún producto disponible.</div>`;
+    DOM.savingsBanner.innerHTML = `
+      <div class="savings-icon-large">ℹ️</div>
+      <div class="savings-text">
+        <h4>Catálogo sin coincidencias directas</h4>
+        <p>Todos los productos consultados están marcados como "No Disponible" en nuestro catálogo local. Intenta buscando artículos de la lista rápida para ensayar cálculos.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  foundResults.forEach(item => {
     const p = item.resolved;
     
-    // Sumas para compras regulares en tienda única (Sin tarjetas)
     totalsRegular.plazaVea += p.prices.plazaVea;
     totalsRegular.metro += p.prices.metro;
     totalsRegular.tottus += p.prices.tottus;
     totalsRegular.wong += p.prices.wong;
     
-    // Sumas considerando descuentos de tarjetas en tienda única (Con tarjetas)
     const effectivePV = p.cardPrices.plazaVea || p.prices.plazaVea;
     const effectiveME = p.cardPrices.metro || p.prices.metro;
     const effectiveTO = p.cardPrices.tottus || p.prices.tottus;
@@ -858,11 +848,11 @@ function calculateCartSavings() {
     totalsWithCards.tottus += effectiveTO;
     totalsWithCards.wong += effectiveWO;
     
-    // Compra dividida (Regular)
+    // Compra dividida regular
     const minReg = Math.min(p.prices.plazaVea, p.prices.metro, p.prices.tottus, p.prices.wong);
     splitTotalRegular += minReg;
     
-    // Compra dividida (Con Tarjetas)
+    // Compra dividida con tarjeta
     const storePricesWithCards = [
       { storeName: 'Plaza Vea', price: effectivePV, cardUsed: !!p.cardPrices.plazaVea, cardLabel: 'Oh!', class: 'indicator-plazavea' },
       { storeName: 'Metro', price: effectiveME, cardUsed: !!p.cardPrices.metro, cardLabel: 'Cenco', class: 'indicator-metro' },
@@ -893,7 +883,6 @@ function calculateCartSavings() {
   const cheapestStoreRegular = storesRegularArr.reduce((prev, curr) => (prev.total < curr.total) ? prev : curr);
   const mostExpensiveStore = storesRegularArr.reduce((prev, curr) => (prev.total > curr.total) ? prev : curr);
   
-  // Renderizar totales de compra única
   DOM.optSingleContainer.innerHTML = storesRegularArr.map(st => `
     <div class="opt-store-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
       <div style="display: flex; justify-content: space-between; width: 100%;">
@@ -910,7 +899,6 @@ function calculateCartSavings() {
     </div>
   `).join('');
   
-  // Renderizar compra dividida inteligente
   DOM.optSplitContainer.innerHTML = `
     <div style="flex-grow: 1;">
       <table class="split-table">
@@ -953,7 +941,6 @@ function calculateCartSavings() {
     </div>
   `;
   
-  // Banner final
   const baseSavings = mostExpensiveStore.total - cheapestStoreRegular.total;
   const cardSavings = mostExpensiveStore.total - splitTotalWithCards;
   
@@ -979,34 +966,35 @@ function saveSearchToAudit() {
   
   let splitTotalWithCards = 0;
   const itemNames = [];
+  const foundResults = state.comparisonResults.filter(item => !item.resolved.notFound);
   
   state.comparisonResults.forEach(item => {
     const p = item.resolved;
     itemNames.push(p.name);
-    
+  });
+  
+  foundResults.forEach(item => {
+    const p = item.resolved;
     const effectivePV = p.cardPrices.plazaVea || p.prices.plazaVea;
     const effectiveME = p.cardPrices.metro || p.prices.metro;
     const effectiveTO = p.cardPrices.tottus || p.prices.tottus;
     const effectiveWO = p.cardPrices.wong || p.prices.wong;
-    
     splitTotalWithCards += Math.min(effectivePV, effectiveME, effectiveTO, effectiveWO);
   });
   
-  // Calcular la tienda recomendada (el split o la tienda única más barata)
-  // Guardar log en LocalStorage
   const auditLogs = JSON.parse(localStorage.getItem('auditLogs') || '[]');
   const newLog = {
     id: Date.now(),
     timestamp: new Date().toLocaleString(),
     queryText: itemNames.join(', '),
     itemsCount: itemNames.length,
-    cheapestStore: 'Estrategia Híbrida/Dividida',
+    cheapestStore: foundResults.length > 0 ? 'Estrategia Híbrida/Dividida' : 'Catálogo Sin stock',
     totalCost: splitTotalWithCards,
-    totalSavings: calculateSavingsValueForAudit()
+    totalSavings: foundResults.length > 0 ? calculateSavingsValueForAudit() : 0
   };
   
-  auditLogs.unshift(newLog); // Añadir al inicio
-  localStorage.setItem('auditLogs', JSON.stringify(auditLogs.slice(0, 50))); // Límite de 50 registros
+  auditLogs.unshift(newLog);
+  localStorage.setItem('auditLogs', JSON.stringify(auditLogs.slice(0, 50)));
   
   renderAuditLogs();
 }
@@ -1014,8 +1002,9 @@ function saveSearchToAudit() {
 function calculateSavingsValueForAudit() {
   const totalsRegular = { plazaVea: 0, metro: 0, tottus: 0, wong: 0 };
   let splitTotalWithCards = 0;
+  const foundResults = state.comparisonResults.filter(item => !item.resolved.notFound);
   
-  state.comparisonResults.forEach(item => {
+  foundResults.forEach(item => {
     const p = item.resolved;
     totalsRegular.plazaVea += p.prices.plazaVea;
     totalsRegular.metro += p.prices.metro;
@@ -1083,6 +1072,12 @@ function handleExportCSV() {
   
   state.comparisonResults.forEach(item => {
     const p = item.resolved;
+    
+    if (p.notFound) {
+      csvContent += `"${p.name.replace(/"/g, '""')}",N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,No Disponible\n`;
+      return;
+    }
+    
     const activePV = p.cardPrices.plazaVea || p.prices.plazaVea;
     const activeME = p.cardPrices.metro || p.prices.metro;
     const activeTO = p.cardPrices.tottus || p.prices.tottus;
