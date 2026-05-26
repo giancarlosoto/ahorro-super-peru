@@ -597,6 +597,7 @@ const DOM = {
   tabOverview: document.getElementById('tab-overview'),
   tabVtex: document.getElementById('tab-vtex'),
   tabPlaywright: document.getElementById('tab-playwright'),
+  tabGoogle: document.getElementById('tab-google'),
   scrapingContent: document.getElementById('scraping-content'),
   scrollTopBtn: document.getElementById('scroll-top-btn'),
   
@@ -655,6 +656,9 @@ function setupEventListeners() {
   DOM.tabOverview.addEventListener('click', () => handleTabClick('overview'));
   DOM.tabVtex.addEventListener('click', () => handleTabClick('vtex'));
   DOM.tabPlaywright.addEventListener('click', () => handleTabClick('playwright'));
+  if (DOM.tabGoogle) {
+    DOM.tabGoogle.addEventListener('click', () => handleTabClick('google'));
+  }
 
   window.addEventListener('scroll', () => {
     if (window.scrollY > 300) {
@@ -709,10 +713,13 @@ function handleClear() {
 
 function handleTabClick(tabId) {
   state.activeScrapingTab = tabId;
-  [DOM.tabOverview, DOM.tabVtex, DOM.tabPlaywright].forEach(btn => btn.classList.remove('active'));
+  [DOM.tabOverview, DOM.tabVtex, DOM.tabPlaywright, DOM.tabGoogle].forEach(btn => {
+    if (btn) btn.classList.remove('active');
+  });
   if (tabId === 'overview') DOM.tabOverview.classList.add('active');
   if (tabId === 'vtex') DOM.tabVtex.classList.add('active');
   if (tabId === 'playwright') DOM.tabPlaywright.classList.add('active');
+  if (tabId === 'google' && DOM.tabGoogle) DOM.tabGoogle.classList.add('active');
   renderScrapingTab(tabId);
 }
 
@@ -761,6 +768,88 @@ function renderScrapingTab(tabId) {
         ${SCRAPING_ARCH.playwrightExplanation}
         <h3>Código Scraper Playwright con Evasión (Stealth)</h3>
         <pre><code>${escapeHtml(SCRAPING_ARCH.nodePlaywrightCode)}</code></pre>
+      </div>
+    `;
+  } else if (tabId === 'google') {
+    contentHtml = `
+      <div>
+        <h3>Extracción Alternativa: Scraping a Google Search/Shopping</h3>
+        <p>¡Es una idea brillante! En lugar de consultar directamente las webs individuales de cada supermercado (Plaza Vea, Metro, Wong, Tottus), podemos hacer scraping directo a **Google Search** o **Google Shopping**. Este enfoque es altamente resiliente porque Google indexa y normaliza los precios de múltiples competidores en una sola consulta, evitando que nuestro scraper falle cuando una tienda cambie su diseño web.</p>
+        
+        <p><strong>Desafíos Técnicos de Scrapear Google:</strong></p>
+        <ul>
+          <li><strong>Bloqueo de IPs y reCAPTCHAs:</strong> Google posee los sistemas de seguridad perimetral más avanzados del mundo. Si realizas muchas consultas programáticas continuas desde la misma IP, bloqueará tu servidor temporalmente exigiendo resolución manual de reCAPTCHA.</li>
+          <li><strong>Restricciones de CORS en el Navegador:</strong> Por seguridad, no es posible realizar peticiones directas desde el navegador a los servidores de Google. Requiere obligatoriamente un proxy o servidor backend en Node.js o Python.</li>
+        </ul>
+
+        <p><strong>Arquitectura Profesional Recomendada:</strong></p>
+        <p>En entornos reales de producción, se utilizan APIs especializadas en parsing de SERPs (como <strong>SerpApi</strong> o <strong>ScrapingBee</strong>). Estas APIs gestionan de forma transparente la rotación de proxies residenciales, la resolución de captchas y te devuelven un JSON estructurado con los precios listos para consumir por tu aplicación.</p>
+
+        <h3>Código de Producción en Node.js (Usando SerpApi para Google Shopping)</h3>
+        <pre><code>${escapeHtml(`// Microservicio backend para buscar precios de supermercados peruanos en Google Shopping
+// Instalar: npm install express axios dotenv
+
+const express = require('express');
+const axios = require('axios');
+require('dotenv').config(); // Guarda tu API_KEY en un archivo .env
+
+const app = express();
+const SERP_API_KEY = process.env.SERP_API_KEY;
+
+app.get('/api/google-prices', async (req, res) => {
+  const { q } = req.query; // Ejemplo de consulta: "Papel Toalla NOVA 6 unidades"
+  
+  if (!q) return res.status(400).send("Falta el parámetro de búsqueda 'q'");
+
+  try {
+    // Consultar el motor de Google Shopping filtrando para la geolocalización de Perú
+    const response = await axios.get('https://serpapi.com/search.json', {
+      params: {
+        engine: 'google_shopping',
+        q: q,
+        google_domain: 'google.com.pe',
+        gl: 'pe', // Localización física: Perú
+        hl: 'es', // Idioma de los resultados: Español
+        api_key: SERP_API_KEY
+      }
+    });
+
+    const shoppingResults = response.data.shopping_results || [];
+    
+    // Filtrar y mapear resultados de tiendas de interés
+    const consolidatedPrices = {
+      plazaVea: null,
+      metro: null,
+      tottus: null,
+      wong: null
+    };
+
+    shoppingResults.forEach(item => {
+      const source = item.source.toLowerCase();
+      const price = parseFloat(item.price.replace(/[^0-9.]/g, ''));
+
+      if (source.includes('plaza vea') && !consolidatedPrices.plazaVea) {
+        consolidatedPrices.plazaVea = price;
+      } else if (source.includes('metro') && !consolidatedPrices.metro) {
+        consolidatedPrices.metro = price;
+      } else if (source.includes('tottus') && !consolidatedPrices.tottus) {
+        consolidatedPrices.tottus = price;
+      } else if (source.includes('wong') && !consolidatedPrices.wong) {
+        consolidatedPrices.wong = price;
+      }
+    });
+
+    res.json({
+      product: q,
+      prices: consolidatedPrices
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.listen(3000, () => console.log('Proxy de Google Scraping corriendo en puerto 3000'));`)}</code></pre>
       </div>
     `;
   }
