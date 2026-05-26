@@ -281,6 +281,120 @@ const PRODUCTS_DATABASE = [
       metro: 13.50
     },
     brand: "Elite"
+  },
+  {
+    id: "papel-toalla-nova-6un",
+    name: "Papel Toalla NOVA Clásico Mega Rollo Paquete 6un",
+    category: "Limpieza",
+    tags: ["papel", "toalla", "nova", "clasico", "mega", "rollo", "6un"],
+    prices: {
+      plazaVea: 13.90,
+      metro: 9.50,
+      tottus: 13.50,
+      wong: 13.90
+    },
+    cardPrices: {
+      plazaVea: 11.90,
+      tottus: 10.90
+    },
+    brand: "Nova"
+  },
+  {
+    id: "arroz-faraon-5kg",
+    name: "Arroz Extra Añejo FARAON Naranja Bolsa 5kg",
+    category: "Abarrotes",
+    tags: ["arroz", "faraon", "anejo", "extra", "naranja", "5kg", "5 kg"],
+    prices: {
+      plazaVea: 27.90,
+      metro: 28.50,
+      tottus: 26.90,
+      wong: 29.50
+    },
+    cardPrices: {
+      plazaVea: 24.90,
+      tottus: 23.90
+    },
+    brand: "Faraón"
+  },
+  {
+    id: "mayonesa-alacena-475g",
+    name: "Mayonesa ALACENA Doypack 475g",
+    category: "Abarrotes",
+    tags: ["mayonesa", "alacena", "doypack", "475g", "aderezo"],
+    prices: {
+      plazaVea: 14.90,
+      metro: 15.20,
+      tottus: 14.50,
+      wong: 15.50
+    },
+    cardPrices: {
+      plazaVea: 12.90,
+      tottus: 12.50
+    },
+    brand: "Alacena"
+  },
+  {
+    id: "lejia-clorox-4kg",
+    name: "Lejía CLOROX Tradicional Botella 4kg",
+    category: "Limpieza",
+    tags: ["lejia", "clorox", "tradicional", "botella", "4kg", "4 kg"],
+    prices: {
+      plazaVea: 11.90,
+      metro: 12.50,
+      tottus: 11.50,
+      wong: 12.90
+    },
+    cardPrices: {
+      plazaVea: 9.90
+    },
+    brand: "Clorox"
+  },
+  {
+    id: "fideos-molitalia-950g",
+    name: "Fideos Spaghetti MOLITALIA Bolsa 950g",
+    category: "Abarrotes",
+    tags: ["fideos", "molitalia", "spaghetti", "950g", "pasta", "fideo"],
+    prices: {
+      plazaVea: 5.90,
+      metro: 6.20,
+      tottus: 5.80,
+      wong: 6.40
+    },
+    cardPrices: {
+      tottus: 4.90
+    },
+    brand: "Molitalia"
+  },
+  {
+    id: "margarina-sello-de-oro-90g",
+    name: "Margarina SELLO DE ORO Barra 90g",
+    category: "Abarrotes",
+    tags: ["margarina", "sello de oro", "sello", "oro", "barra", "90g"],
+    prices: {
+      plazaVea: 2.10,
+      metro: 2.30,
+      tottus: 1.90,
+      wong: 2.40
+    },
+    cardPrices: {},
+    brand: "Sello de Oro"
+  },
+  {
+    id: "detergente-opal-5-6kg",
+    name: "Detergente en Polvo OPAL Ultra Bolsa 5.6kg",
+    category: "Limpieza",
+    tags: ["detergente", "opal", "polvo", "ultra", "5.6kg", "5.6 kg"],
+    prices: {
+      plazaVea: 48.90,
+      metro: 49.90,
+      tottus: 47.90,
+      wong: 51.90
+    },
+    cardPrices: {
+      plazaVea: 42.90,
+      tottus: 41.90
+    },
+    brand: "Opal"
   }
 ];
 
