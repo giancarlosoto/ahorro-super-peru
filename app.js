@@ -395,6 +395,23 @@ const PRODUCTS_DATABASE = [
       tottus: 41.90
     },
     brand: "Opal"
+  },
+  {
+    id: "mantequilla-gloria-pote-390g",
+    name: "Mantequilla GLORIA Pote 390g",
+    category: "Lácteos y Desayuno",
+    tags: ["mantequilla", "gloria", "pote", "390g", "390 g"],
+    prices: {
+      plazaVea: 14.50,
+      metro: 14.90,
+      tottus: 14.20,
+      wong: 15.20
+    },
+    cardPrices: {
+      plazaVea: 12.90,
+      tottus: 12.50
+    },
+    brand: "Gloria"
   }
 ];
 
